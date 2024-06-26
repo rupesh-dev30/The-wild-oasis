@@ -1,8 +1,7 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+/* eslint-disable react/prop-types */
+/* eslint-disable no-unused-vars */
 import { useForm } from "react-hook-form";
-import toast from "react-hot-toast";
 
-import { createEditCabin } from "../../services/apiCabins";
 import Input from "../../ui/Input";
 import Form from "../../ui/Form";
 import Button from "../../ui/Button";
@@ -10,69 +9,51 @@ import FileInput from "../../ui/FileInput";
 import Textarea from "../../ui/Textarea";
 import FormRow from "../../ui/FormRow";
 
-// eslint-disable-next-line react/prop-types
+import { useCreateCabin } from "./useCreateCabin";
+import { useEditCabin } from "./useEditCabin";
+
 function CreateCabinForm({ cabinToEdit = {} }) {
+  const { isCreating, createCabin } = useCreateCabin();
+  const { isEditing, editCabin } = useEditCabin();
+  const isWorking = isCreating || isEditing;
+
   const { id: editId, ...editValues } = cabinToEdit;
   const isEditSession = Boolean(editId);
 
   const { register, handleSubmit, reset, getValues, formState } = useForm({
     defaultValues: isEditSession ? editValues : {},
   });
-
   const { errors } = formState;
-
-  const queryClient = useQueryClient();
-
-  const { mutate: createCabin, isLoading: isCreating } = useMutation({
-    // mutationFn: (newCabin) => createCabin(),
-    mutationFn: createEditCabin,
-    onSuccess: () => {
-      toast.success("New cabin successfull created");
-      queryClient.invalidateQueries({ queryKey: ["cabins"] });
-      reset();
-    },
-    onError: (err) => {
-      toast.error(err.message);
-    },
-  });
-
-  const { mutate: editCabin, isLoading: isEditing } = useMutation({
-    // mutationFn: (newCabin) => createCabin(),
-    mutationFn: ({ newCabinData, id }) => createEditCabin(newCabinData, id),
-    onSuccess: () => {
-      toast.success("Cabin successfull edited");
-      queryClient.invalidateQueries({ queryKey: ["cabins"] });
-      reset();
-    },
-    onError: (err) => {
-      toast.error(err.message);
-    },
-  });
-
-  const isWorking = isCreating || isEditing;
 
   function onSubmit(data) {
     const image = typeof data.image === "string" ? data.image : data.image[0];
 
     if (isEditSession)
-      editCabin({
-        newCabinData: {
-          ...data,
-          image,
-        },
-        id: editId,
-      });
-    else createCabin({ ...data, image: image });
-    // console.log(data);
+      editCabin(
+        { newCabinData: { ...data, image }, id: editId },
+        {
+          onSuccess: (data) => {
+            reset();
+          },
+        }
+      );
+    else
+      createCabin(
+        { ...data, image: image },
+        {
+          onSuccess: (data) => {
+            reset();
+          },
+        }
+      );
   }
 
-  // function onError(errors) {
-  //   // console.log(errors);
-  // }
+  function onError(errors) {
+    // console.log(errors);
+  }
 
   return (
-    // <Form onSubmit={handleSubmit(onSubmit, onError)}>
-    <Form onSubmit={handleSubmit(onSubmit)}>
+    <Form onSubmit={handleSubmit(onSubmit, onError)}>
       <FormRow label="Cabin name" error={errors?.name?.message}>
         <Input
           type="text"
@@ -84,7 +65,7 @@ function CreateCabinForm({ cabinToEdit = {} }) {
         />
       </FormRow>
 
-      <FormRow label="Maximum Capacity" error={errors?.maxCapacity?.message}>
+      <FormRow label="Maximum capacity" error={errors?.maxCapacity?.message}>
         <Input
           type="number"
           id="maxCapacity"
@@ -93,13 +74,13 @@ function CreateCabinForm({ cabinToEdit = {} }) {
             required: "This field is required",
             min: {
               value: 1,
-              message: "Capacity should be atleast 1",
+              message: "Capacity should be at least 1",
             },
           })}
         />
       </FormRow>
 
-      <FormRow label="Regular Price" error={errors?.regularPrice?.message}>
+      <FormRow label="Regular price" error={errors?.regularPrice?.message}>
         <Input
           type="number"
           id="regularPrice"
@@ -108,7 +89,7 @@ function CreateCabinForm({ cabinToEdit = {} }) {
             required: "This field is required",
             min: {
               value: 1,
-              message: "Capacity should be atleast 1",
+              message: "Capacity should be at least 1",
             },
           })}
         />
@@ -118,18 +99,21 @@ function CreateCabinForm({ cabinToEdit = {} }) {
         <Input
           type="number"
           id="discount"
-          defaultValue={0}
           disabled={isWorking}
+          defaultValue={0}
           {...register("discount", {
             required: "This field is required",
             validate: (value) =>
-              Number(value) <= Number(getValues().regularPrice) ||
+              value <= getValues().regularPrice ||
               "Discount should be less than regular price",
           })}
         />
       </FormRow>
 
-      <FormRow label="Description" error={errors?.description?.message}>
+      <FormRow
+        label="Description for website"
+        error={errors?.description?.message}
+      >
         <Textarea
           type="number"
           id="description"
@@ -141,7 +125,7 @@ function CreateCabinForm({ cabinToEdit = {} }) {
         />
       </FormRow>
 
-      <FormRow label="Cabin photo" error={errors?.image?.message}>
+      <FormRow label="Cabin photo">
         <FileInput
           id="image"
           accept="image/*"
@@ -156,7 +140,7 @@ function CreateCabinForm({ cabinToEdit = {} }) {
         <Button variation="secondary" type="reset">
           Cancel
         </Button>
-        <Button disabled={isCreating}>
+        <Button disabled={isWorking}>
           {isEditSession ? "Edit cabin" : "Create new cabin"}
         </Button>
       </FormRow>
